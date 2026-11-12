@@ -2,10 +2,44 @@
 
 魔搭（ModelScope）**生图 + 发布到创意广场** 的 MCP 服务器。
 
-直接调 ModelScope 的 Web API，**不需要浏览器、不需要 Selenium/Playwright**，
-所以既能挂进任何 MCP 客户端，也能部署到魔搭的 [MCP 部署服务](https://modelscope.cn/my/mcpDeploy) 上长期使用。
+直接调 ModelScope 的 Web 接口，**不需要浏览器自动化**（登录只用一次交互，之后读本地 Cookie 文件）。
+天然跨工具：TRAE / Cursor / Claude Desktop / Cherry Studio / WorkBuddy 都能挂。
 
 零第三方依赖，Node >= 22。
+
+## 三步上手（每台机器一次）
+
+```bash
+# 1) 登录（会弹一个 Chrome 窗口，扫码/短信登录，成功后自动保存 Cookie）
+npx -y github:ga-ven/modelscope-gen-image-mcp login
+
+# 2) 确认
+npx -y github:ga-ven/modelscope-gen-image-mcp whoami
+# → 已登录：你的用户名
+
+# 3) 在客户端里配 mcpServers（见下）
+```
+
+Cookie 存在 `~/.modelscope-aigc/cookies.json`，换机器重新 `login` 一次即可。
+
+## 客户端配置
+
+**TRAE / Cursor / Claude Desktop / Cherry Studio**（JSON 形式都一样）：
+
+```json
+{
+  "mcpServers": {
+    "modelscope-aigc": {
+      "command": "npx",
+      "args": ["-y", "github:ga-ven/modelscope-gen-image-mcp"]
+    }
+  }
+}
+```
+
+**WorkBuddy** 写 `~/.workbuddy/mcp.json`，然后在连接器管理页右上角「自定义连接器」里点一次「信任」。
+
+想固定用某个本地 token 覆盖（CI 场景）：加 `"env": { "MODELSCOPE_COOKIE": "..." }`。
 
 ## 工具
 
@@ -24,55 +58,17 @@
 
 尺寸：`1472*1104`（横向三视图）、`1104*1472`（纵向）、`1024*1024` 等任意合法宽高。
 
-## 认证（二选一）
+## 认证说明（重要）
 
-- `MODELSCOPE_API_TOKEN` —— 个人访问令牌，**云端部署用这个**。
-  获取：`https://modelscope.cn` → 头像 → 账号设置 → 访问令牌 → 新建。
-- `MODELSCOPE_COOKIE` —— 浏览器 cookie 原始串，仅适合本机临时调试（会过期）。
+魔搭有两种凭据，**用途不同**：
 
-可选 `MODELSCOPE_BASE`，默认 `https://modelscope.cn`。
+| 凭据 | 能用在哪 | 能不能干这活 |
+| --- | --- | --- |
+| 访问令牌 `ms-...` | openapi / api-inference / 模型下载 | ❌ 网页内部接口（`/api/v1/muse/**`）返回 **401** |
+| 浏览器登录态（Cookie） | 网页内部接口 | ✅ 生图、发布都靠它 |
 
-## 本地挂载
-
-```json
-{
-  "mcpServers": {
-    "modelscope-aigc": {
-      "command": "npx",
-      "args": ["-y", "github:ga-ven/modelscope-gen-image-mcp"],
-      "env": { "MODELSCOPE_API_TOKEN": "<你的令牌>" }
-    }
-  }
-}
-```
-
-WorkBuddy 写到 `~/.workbuddy/mcp.json`，然后在连接器管理页右上角「自定义连接器」里
-对新服务器点一次「信任」才会生效（MCP 不会热加载）。
-
-## 部署到魔搭 MCP 部署服务
-
-1. 打开 <https://modelscope.cn/my/mcpDeploy?page=1> → 新建部署
-2. 步骤 1 选 **自定义MCP**，安装命令选 `npx`，服务配置粘贴：
-
-```json
-{
-  "mcpServers": {
-    "modelscope-aigc": {
-      "command": "npx",
-      "args": ["-y", "github:ga-ven/modelscope-gen-image-mcp"],
-      "env": { "MODELSCOPE_API_TOKEN": "<你的令牌>" }
-    }
-  }
-}
-```
-
-3. 下一步 → 配置部署资源（有「免费部署资源」与「个人账号授权资源」两类）→ 提交
-
-⚠️ 首次部署需要确认两点：
-
-- 云端容器能否出网访问 `modelscope.cn` 的 `/api/v1/muse/**`（本地已验证可用）；
-- 这些 Web 接口是否接受 `Authorization: Bearer` 令牌。它们历史上靠 Cookie：
-  若只认 Cookie，优先试「个人账号授权资源」，否则用 `MODELSCOPE_COOKIE` 兜底（会过期）。
+所以本服务用 Cookie（通过 `login` 一次性获取并本地保存）。
+访问令牌**不要**往这里配，配了也是 401。
 
 ## 接口链
 
@@ -93,18 +89,25 @@ POST /api/v1/aigc/picture/upload                            → {id}，分享页
 
 两个坑：
 
-- 响应是**两层信封** `{Code, Data:{code, data, message}}`，真实内容在 `Data.data`（`server.mjs` 已统一拆解）。
+- 响应是**两层信封** `{Code, Data:{code, data, message}}`，真实内容在 `Data.data`（已统一拆解）。
 - 页面把 `window.fetch` 打了补丁（页内调试会 `Failed to fetch`），浏览器里请用 `XMLHttpRequest`；Node 侧不受影响。
 
-## 本地自测
+## 环境变量
 
-```bash
-MODELSCOPE_API_TOKEN=xxx node server.mjs
-# 然后按 MCP 协议喂 JSON-RPC（换行分隔），例如：
-# {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}
-# {"jsonrpc":"2.0","id":2,"method":"tools/list"}
-# {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_quota","arguments":{}}}
-```
+| 变量 | 说明 |
+| --- | --- |
+| `MODELSCOPE_COOKIE` | 直接给 Cookie 串，优先于本地文件 |
+| `MODELSCOPE_BASE` | 默认 `https://modelscope.cn`，国际站填 `https://modelscope.ai` |
+| `MMP_HOME` | Cookie 与 Chrome 配置目录，默认 `~/.modelscope-aigc` |
+| `MMP_LOGIN_PORT` | login 时的调试端口，默认 9411 |
+| `CHROME` / `CHROME_PATH` | 指定 Chrome 可执行文件 |
+
+## 排错
+
+- `未找到魔搭登录态` → 跑一次 `login`
+- `登录态失效（401）` → Cookie 过期，重跑 `login`
+- `login` 弹窗后 6 分钟没检测到 → 在窗口里登录完，再跑一次 `login`（复用同一 Chrome 配置目录）
+- 生图报 `图片生成失败` → 检查网页上「图片编辑 / 图生图」开关是否被打开（会顶掉文生图）
 
 ## License
 

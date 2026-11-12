@@ -1,13 +1,32 @@
 {
   "name": "modelscope-gen-image-mcp",
-  "version": "0.1.0",
-  "description": "ModelScope AIGC 生图 + 发布到创意广场的 MCP 服务器（零依赖，Node >= 22）",
+  "version": "0.2.0",
+  "description": "魔搭(ModelScope) 生图 + 发布到创意广场的 MCP 服务器：一次 login 保存登录态，之后任意 MCP 客户端可调用（零依赖，Node>=22）",
   "type": "module",
-  "bin": { "modelscope-gen-image-mcp": "server.mjs" },
+  "bin": {
+    "modelscope-gen-image-mcp": "server.mjs"
+  },
   "main": "server.mjs",
-  "files": ["server.mjs", "README.md"],
-  "engines": { "node": ">=22" },
+  "files": [
+    "server.mjs",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "license": "MIT",
-  "keywords": ["mcp", "modelscope", "aigc", "image-generation", "qwen-image", "model-context-protocol"],
-  "repository": { "type": "git", "url": "git+https://github.com/ga-ven/modelscope-gen-image-mcp.git" }
+  "keywords": [
+    "mcp",
+    "modelscope",
+    "aigc",
+    "image-generation",
+    "qwen-image",
+    "model-context-protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ga-ven/modelscope-gen-image-mcp.git"
+  }
 }
