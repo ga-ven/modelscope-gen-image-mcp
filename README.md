@@ -58,6 +58,27 @@ Cookie 存在 `~/.modelscope-aigc/cookies.json`，换机器重新 `login` 一次
 
 尺寸：`1472*1104`（横向三视图）、`1104*1472`（纵向）、`1024*1024` 等任意合法宽高。
 
+## 批量换装（示例脚本）
+
+`examples/batch-three-view.mjs` 是「同一人物锚定提示词 + 只换服饰」的批处理，
+适合一次出多套穿搭并逐套发布：
+
+```bash
+cp examples/prompts.example.json prompts.json     # 改 base / negative / variants
+node examples/batch-three-view.mjs --config prompts.json --only 1,2
+node examples/batch-three-view.mjs --config prompts.json --no-publish   # 只出图不发布
+```
+
+每条变体只需填 `outfit`（服饰）和 `title`（作品名），`base` 里用 `{OUTFIT}` 占位。
+跑完在 `./out/` 拿到图片，并生成 `report.json` 记录每套的图片地址与分享链接。
+
+提示词经验：
+
+- 负向里**不要**放「真实毛孔 / 自然肤质 / 轻微胶片颗粒」，会和正向的"真实皮肤纹理"打架
+- 三视图写死「同一人物、五官/发型/妆容/身材比例完全统一、光影统一」，
+  负向加「服装串套、配饰缺失、细节特写窗口、局部放大框、左侧半身特写」
+- 换装只改 `{OUTFIT}`，人物锚定段落一字不动，多套之间人物一致性才稳
+
 ## 认证说明（重要）
 
 魔搭有两种凭据，**用途不同**：
